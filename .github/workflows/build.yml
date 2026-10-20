@@ -1,0 +1,113 @@
+name: build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  OPENVR_TAG: v2.15.6
+
+jobs:
+  tests:
+    name: Тесты и проверка компиляции (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python-тесты (симулятор + совпадение формата пакета с C++)
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Скачать заголовки OpenVR
+        run: git clone --depth 1 --branch "$OPENVR_TAG" https://github.com/ValveSoftware/openvr "$RUNNER_TEMP/openvr"
+
+      - name: Компиляция драйвера (проверка на Linux)
+        run: g++ -std=c++17 -Wall -Wextra -fPIC -shared -isystem "$RUNNER_TEMP/openvr/headers" driver/src/driver_main.cpp -o "$RUNNER_TEMP/driver.so" -pthread
+
+  windows:
+    name: Сборка драйвера и архива (Windows)
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Проверка, что PowerShell-скрипты разбираются без ошибок
+        shell: powershell
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem scripts/*.ps1) {
+            $errors = $null
+            $tokens = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors -and $errors.Count -gt 0) {
+              $bad = 1
+              foreach ($e in $errors) { Write-Host "$($f.Name): $($e.Message) (строка $($e.Extent.StartLineNumber))" }
+            } else {
+              Write-Host "$($f.Name): OK"
+            }
+          }
+          exit $bad
+
+      - name: Скачать заголовки OpenVR
+        shell: bash
+        run: git clone --depth 1 --branch "$OPENVR_TAG" https://github.com/ValveSoftware/openvr "$RUNNER_TEMP/openvr"
+
+      - name: CMake configure
+        shell: bash
+        run: cmake -S driver -B build -A x64 -DOPENVR_DIR="$RUNNER_TEMP/openvr"
+
+      - name: CMake build
+        run: cmake --build build --config Release
+
+      - name: CMake install
+        run: cmake --install build --config Release --prefix package_tmp
+
+      - name: Собрать папку VRHand и архив
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory VRHand | Out-Null
+          Copy-Item package_tmp/vrhand VRHand/vrhand -Recurse
+          New-Item -ItemType Directory VRHand/client | Out-Null
+          Copy-Item client/*.py VRHand/client/
+          New-Item -ItemType Directory VRHand/scripts | Out-Null
+          Copy-Item scripts/*.ps1 VRHand/scripts/
+          Copy-Item scripts/*.bat VRHand/
+          Copy-Item README.md, LICENSE VRHand/
+          Compress-Archive -Path VRHand -DestinationPath VRHand.zip
+          Get-ChildItem -Recurse VRHand | Where-Object { -not $_.PSIsContainer } | ForEach-Object { "{0,10}  {1}" -f $_.Length, $_.FullName.Substring((Get-Location).Path.Length + 1) }
+
+      - name: Проверка DLL (файл есть и экспортирует HmdDriverFactory)
+        shell: pwsh
+        run: |
+          $dll = "VRHand/vrhand/bin/win64/driver_vrhand.dll"
+          if (-not (Test-Path $dll)) { throw "DLL не найдена" }
+          if (-not (Select-String -Path $dll -Pattern "HmdDriverFactory" -SimpleMatch -Quiet)) { throw "В DLL нет экспорта HmdDriverFactory" }
+          "OK: $((Get-Item $dll).Length) байт"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VRHand
+          path: VRHand.zip
+
+      - name: Релиз по тегу
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" VRHand.zip --title "VRHand ${{ github.ref_name }}" --generate-notes
+
+      - name: Обновить последнюю сборку (ветка main)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest VRHand.zip --prerelease --target "${{ github.sha }}" \
+            --title "VRHand — последняя сборка" \
+            --notes "Автоматическая сборка из ветки main (коммит ${{ github.sha }}). Скачайте VRHand.zip, распакуйте и запустите install.bat. Инструкция — в README.md."

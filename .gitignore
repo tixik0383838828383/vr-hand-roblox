@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+build/
+package_tmp/
+VRHand/
+VRHand.zip
+*.so
+*.dll
+*.obj
+.vs/

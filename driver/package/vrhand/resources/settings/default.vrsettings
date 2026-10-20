@@ -1,0 +1,15 @@
+{
+    "driver_vrhand": {
+        "udpPort": 49555,
+        "enableControllers": true,
+        "windowX": 50,
+        "windowY": 50,
+        "windowWidth": 1280,
+        "windowHeight": 720,
+        "renderWidth": 1080,
+        "renderHeight": 1200,
+        "displayFrequency": 60.0,
+        "secondsFromVsyncToPhotons": 0.011,
+        "ipd": 0.063
+    }
+}
