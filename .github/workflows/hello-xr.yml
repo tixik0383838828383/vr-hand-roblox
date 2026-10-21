@@ -23,7 +23,7 @@ jobs:
 
       - name: CMake configure
         shell: bash
-        run: cmake -S "$RUNNER_TEMP/openxr" -B "$RUNNER_TEMP/openxr/build" -A x64 -DBUILD_API_LAYERS=OFF -DBUILD_TESTS=OFF -DBUILD_CONFORMANCE_TESTS=OFF -DDYNAMIC_LOADER=ON
+        run: cmake -S "$RUNNER_TEMP/openxr" -B "$RUNNER_TEMP/openxr/build" -A x64 -DBUILD_API_LAYERS=OFF -DBUILD_TESTS=ON -DBUILD_CONFORMANCE_TESTS=OFF -DDYNAMIC_LOADER=ON
 
       - name: Сборка hello_xr
         shell: bash
