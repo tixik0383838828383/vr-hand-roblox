@@ -58,6 +58,7 @@ jobs:
           Get-Content ApiDump/XrApiLayer_api_dump.json
           Copy-Item tools/apidump_on.bat ApiDump/
           Copy-Item tools/apidump_off.bat ApiDump/
+          Copy-Item tools/apidump_run.bat ApiDump/
           Compress-Archive -Path ApiDump -DestinationPath ApiDump.zip
 
       - uses: actions/upload-artifact@v4
