@@ -3,7 +3,7 @@ param([string]$SteamVRPath = "")
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
-$driverDir = Join-Path $root "vrhand"
+$driverDir = Join-Path $env:SystemDrive "VRHandDriver\vrhand"
 
 $steamRoot = $null
 foreach ($key in @("HKCU:\Software\Valve\Steam", "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam")) {
@@ -40,6 +40,8 @@ if (Get-Process -Name vrserver, vrmonitor, vrcompositor -ErrorAction SilentlyCon
 if ($SteamVRPath -and (Test-Path (Join-Path $SteamVRPath "bin\win64\vrpathreg.exe"))) {
     & (Join-Path $SteamVRPath "bin\win64\vrpathreg.exe") removedriver $driverDir
     Write-Host "Драйвер снят с регистрации." -ForegroundColor Green
+    $oldDriver = Join-Path $root "vrhand"
+    try { & (Join-Path $SteamVRPath "bin\win64\vrpathreg.exe") removedriver $oldDriver 2>&1 | Out-Null } catch { }
 } else {
     Write-Host "SteamVR не найден — драйвер уже не зарегистрирован или SteamVR удалён." -ForegroundColor Yellow
 }
@@ -67,3 +69,7 @@ if ($steamRoot) {
     }
 }
 Write-Host "Готово."
+
+if (Test-Path (Split-Path $driverDir -Parent)) {
+    try { Remove-Item (Split-Path $driverDir -Parent) -Recurse -Force; Write-Host "Папка драйвера удалена." } catch { Write-Host "Не удалось удалить $(Split-Path $driverDir -Parent) — удалите вручную." -ForegroundColor Yellow }
+}

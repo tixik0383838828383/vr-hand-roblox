@@ -37,12 +37,12 @@ Visual Studio и C++ **не нужны**: драйвер собирается н
 (Если релиза ещё нет: вкладка **Actions** → последний зелёный запуск `build` → внизу **Artifacts** → `VRHand`.)
 
 Распакуйте `VRHand.zip` в постоянное место, например `C:\VRHand\`.
-**Не перемещайте папку после установки** — SteamVR запоминает путь.
+Драйвер при установке копируется в `C:\VRHandDriver` (SteamVR не понимает пути с русскими буквами, например `C:\Users\Пользователь\...`), поэтому папку можно где угодно.
 
 ### 2. Установить драйвер
 1. Закройте SteamVR, если он запущен.
 2. Дважды кликните **`install.bat`**.
-3. Скрипт сам найдёт SteamVR, зарегистрирует драйвер и поправит настройки:
+3. Скрипт сам найдёт SteamVR, скопирует драйвер в `C:\VRHandDriver`, зарегистрирует его и поправит настройки:
    `forcedDriver = vrhand`, `activateMultipleDrivers = true`, `enableHomeApp = false`
    (копия старых настроек — `steamvr.vrsettings.vrhand-backup`).
 
@@ -111,7 +111,10 @@ SteamVR должен показать **один шлем и два контро
 
 ## Если не работает
 
-**SteamVR пишет «Шлем не найден» / ошибка 108 / 306.**
+**SteamVR пишет «подключите VR-устройство» / «Шлем не найден».**
+В `Steam\logs\vrserver.txt` найдите `vrhand`. Строка `Skipping external driver ... because it is not a directory` значит, что в пути к драйверу русские буквы: обновите до свежей версии и запустите `install.bat` снова (он ставит драйвер в `C:\VRHandDriver`).
+
+**Ошибка 108 / 306.**
 Закройте SteamVR, снова запустите `install.bat`. Проверьте, что в `steamvr.vrsettings` (папка `Steam\config`)
 в разделе `steamvr` есть `"forcedDriver": "vrhand"`. Лог драйвера: `Steam\logs\vrserver.txt` — ищите строки `[vrhand]`.
 

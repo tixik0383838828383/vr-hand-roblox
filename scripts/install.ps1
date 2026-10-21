@@ -3,7 +3,7 @@
 #
 # Что делает скрипт:
 #   1. находит SteamVR;
-#   2. регистрирует папку vrhand\ как драйвер (vrpathreg adddriver) — файлы в Program Files не копируются;
+#   2. копирует драйвер в C:\VRHandDriver (путь без русских букв) и регистрирует его (vrpathreg adddriver);
 #   3. правит steamvr.vrsettings: использовать только наш драйвер и не запускать SteamVR Home.
 #      Старый файл настроек сохраняется как steamvr.vrsettings.vrhand-backup.
 
@@ -20,8 +20,11 @@ function Fail($msg) {
 }
 
 $root = Split-Path $PSScriptRoot -Parent
-$driverDir = Join-Path $root "vrhand"
-$dll = Join-Path $driverDir "bin\win64\driver_vrhand.dll"
+$sourceDir = Join-Path $root "vrhand"
+# SteamVR (vrpathreg) ломает пути с русскими буквами (например C:\Users\Пользователь\Desktop),
+# поэтому драйвер копируем в путь только из латиницы и регистрируем уже его.
+$driverDir = Join-Path $env:SystemDrive "VRHandDriver\vrhand"
+$dll = Join-Path $sourceDir "bin\win64\driver_vrhand.dll"
 
 if (-not (Test-Path $dll)) {
     Fail "Не найден $dll`nСкачайте готовый архив VRHand.zip со страницы Releases и запускайте install.bat из распакованной папки."
@@ -70,7 +73,20 @@ if ($running) {
     Fail "SteamVR сейчас запущен. Закройте его (правый клик на значок SteamVR в трее -> Выход) и запустите install.bat снова."
 }
 
-# --- 3. Регистрируем драйвер -------------------------------------------------------
+# --- 3. Копируем драйвер в C:\VRHandDriver и регистрируем ------------------------------
+if ($driverDir -match '[^\x00-\x7F]') {
+    Fail "Путь $driverDir содержит не-латинские символы. Откройте scripts\install.ps1 и поменяйте `$driverDir на путь из латиницы."
+}
+try {
+    if (Test-Path $driverDir) { Remove-Item $driverDir -Recurse -Force }
+    New-Item -ItemType Directory -Path (Split-Path $driverDir -Parent) -Force | Out-Null
+    Copy-Item $sourceDir $driverDir -Recurse -Force
+} catch {
+    Fail "Не удалось скопировать драйвер в ${driverDir}: $($_.Exception.Message)"
+}
+if (-not (Test-Path (Join-Path $driverDir "bin\win64\driver_vrhand.dll"))) { Fail "После копирования в $driverDir нет driver_vrhand.dll" }
+Write-Host "Драйвер скопирован: $driverDir"
+
 $vrpathreg = Join-Path $SteamVRPath "bin\win64\vrpathreg.exe"
 # Если драйвер уже был зарегистрирован — снимаем, чтобы не было дублей (ошибки здесь не важны).
 try { & $vrpathreg removedriver $driverDir 2>&1 | Out-Null } catch { }
@@ -126,4 +142,4 @@ Write-Host "  2. Запустите start_client.bat (окно управлен�
 Write-Host "  3. В SteamVR: Настройки -> Разработчик -> Set SteamVR as OpenXR runtime."
 Write-Host "  4. Запустите Roblox-плейс. Подробности — в README.md."
 Write-Host ""
-Write-Host "Не перемещайте и не удаляйте эту папку, пока драйвер установлен." -ForegroundColor Yellow
+Write-Host "Драйвер лежит в $driverDir. Папку VRHand на рабочем столе после установки можно перемещать." -ForegroundColor Yellow
