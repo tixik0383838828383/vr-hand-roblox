@@ -59,6 +59,9 @@ jobs:
           Copy-Item tools/apidump_on.bat ApiDump/
           Copy-Item tools/apidump_off.bat ApiDump/
           Copy-Item tools/apidump_run.bat ApiDump/
+          Copy-Item tools/apidump_selftest.bat ApiDump/
+          Copy-Item HelloXR/hello_xr.exe ApiDump/
+          if (Test-Path HelloXR/openxr_loader.dll) { Copy-Item HelloXR/openxr_loader.dll ApiDump/ }
           Compress-Archive -Path ApiDump -DestinationPath ApiDump.zip
 
       - uses: actions/upload-artifact@v4
