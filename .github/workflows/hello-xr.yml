@@ -1,0 +1,58 @@
+name: hello-xr
+
+# Собирает тестовую программу OpenXR от Khronos (hello_xr) для проверки,
+# принимает ли SteamVR виртуальный шлем VRHand как обычное OpenXR-устройство.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  OPENXR_TAG: release-1.1.65
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Скачать OpenXR-SDK-Source
+        shell: bash
+        run: git clone --depth 1 --branch "$OPENXR_TAG" https://github.com/KhronosGroup/OpenXR-SDK-Source "$RUNNER_TEMP/openxr"
+
+      - name: CMake configure
+        shell: bash
+        run: cmake -S "$RUNNER_TEMP/openxr" -B "$RUNNER_TEMP/openxr/build" -A x64 -DBUILD_API_LAYERS=OFF -DBUILD_TESTS=OFF -DBUILD_CONFORMANCE_TESTS=OFF -DDYNAMIC_LOADER=ON
+
+      - name: Сборка hello_xr
+        shell: bash
+        run: cmake --build "$RUNNER_TEMP/openxr/build" --config Release --target hello_xr
+
+      - name: Собрать архив
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory HelloXR | Out-Null
+          $exe = Get-ChildItem -Path "$env:RUNNER_TEMP/openxr/build" -Recurse -Filter hello_xr.exe | Select-Object -First 1
+          if (-not $exe) { throw "hello_xr.exe не найден" }
+          Copy-Item $exe.FullName HelloXR/
+          $dll = Get-ChildItem -Path "$env:RUNNER_TEMP/openxr/build" -Recurse -Filter openxr_loader.dll | Select-Object -First 1
+          if ($dll) { Copy-Item $dll.FullName HelloXR/ }
+          Copy-Item tools/run_hello_xr.bat HelloXR/
+          Get-ChildItem HelloXR | Format-Table Name, Length
+          Compress-Archive -Path HelloXR -DestinationPath HelloXR.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HelloXR
+          path: HelloXR.zip
+
+      - name: Опубликовать в релиз tools
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete tools --yes --cleanup-tag || true
+          gh release create tools HelloXR.zip --prerelease --target "${{ github.sha }}" \
+            --title "Инструменты проверки" \
+            --notes "hello_xr от Khronos — проверка OpenXR. Запускайте run_hello_xr.bat при работающем SteamVR."
