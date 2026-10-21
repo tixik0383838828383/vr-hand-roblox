@@ -27,7 +27,15 @@ jobs:
 
       - name: Сборка hello_xr
         shell: bash
-        run: cmake --build "$RUNNER_TEMP/openxr/build" --config Release --target hello_xr
+        run: |
+          set +e
+          cmake --build "$RUNNER_TEMP/openxr/build" --config Release --target hello_xr > build.log 2>&1
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            grep -iE "error|fatal|cannot|not found" build.log | head -15 | cut -c1-400 | while IFS= read -r line; do echo "::error::${line//%/%25}"; done
+            tail -n 5 build.log | cut -c1-400 | while IFS= read -r line; do echo "::error::tail ${line//%/%25}"; done
+          fi
+          exit $rc
 
       - name: Собрать архив
         shell: pwsh
