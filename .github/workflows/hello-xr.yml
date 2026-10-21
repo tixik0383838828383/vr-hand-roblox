@@ -23,13 +23,13 @@ jobs:
 
       - name: CMake configure
         shell: bash
-        run: cmake -S "$RUNNER_TEMP/openxr" -B "$RUNNER_TEMP/openxr/build" -A x64 -DBUILD_API_LAYERS=OFF -DBUILD_TESTS=ON -DBUILD_CONFORMANCE_TESTS=OFF -DDYNAMIC_LOADER=ON
+        run: cmake -S "$RUNNER_TEMP/openxr" -B "$RUNNER_TEMP/openxr/build" -A x64 -DBUILD_API_LAYERS=ON -DBUILD_TESTS=ON -DBUILD_CONFORMANCE_TESTS=OFF -DDYNAMIC_LOADER=ON
 
       - name: Сборка hello_xr
         shell: bash
         run: |
           set +e
-          cmake --build "$RUNNER_TEMP/openxr/build" --config Release --target hello_xr > build.log 2>&1
+          cmake --build "$RUNNER_TEMP/openxr/build" --config Release --target hello_xr XrApiLayer_api_dump > build.log 2>&1
           rc=$?
           if [ $rc -ne 0 ]; then
             grep -iE "error|fatal|cannot|not found" build.log | head -15 | cut -c1-400 | while IFS= read -r line; do echo "::error::${line//%/%25}"; done
@@ -49,11 +49,23 @@ jobs:
           Copy-Item tools/run_hello_xr.bat HelloXR/
           Get-ChildItem HelloXR | Format-Table Name, Length
           Compress-Archive -Path HelloXR -DestinationPath HelloXR.zip
+          New-Item -ItemType Directory ApiDump | Out-Null
+          $layerDll = Get-ChildItem -Path "$env:RUNNER_TEMP/openxr/build" -Recurse -Filter XrApiLayer_api_dump.dll | Select-Object -First 1
+          $layerJson = Get-ChildItem -Path "$env:RUNNER_TEMP/openxr/build" -Recurse -Filter XrApiLayer_api_dump.json | Select-Object -First 1
+          if (-not $layerDll -or -not $layerJson) { throw "api_dump слой не найден" }
+          Copy-Item $layerDll.FullName ApiDump/
+          Copy-Item $layerJson.FullName ApiDump/
+          Get-Content ApiDump/XrApiLayer_api_dump.json
+          Copy-Item tools/apidump_on.bat ApiDump/
+          Copy-Item tools/apidump_off.bat ApiDump/
+          Compress-Archive -Path ApiDump -DestinationPath ApiDump.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: HelloXR
-          path: HelloXR.zip
+          path: |
+            HelloXR.zip
+            ApiDump.zip
 
       - name: Опубликовать в релиз tools
         shell: bash
@@ -61,6 +73,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete tools --yes --cleanup-tag || true
-          gh release create tools HelloXR.zip --prerelease --target "${{ github.sha }}" \
+          gh release create tools HelloXR.zip ApiDump.zip --prerelease --target "${{ github.sha }}" \
             --title "Инструменты проверки" \
             --notes "hello_xr от Khronos — проверка OpenXR. Запускайте run_hello_xr.bat при работающем SteamVR."
