@@ -74,6 +74,8 @@ jobs:
           Copy-Item tools/apidump_on.bat ApiDump/
           Copy-Item tools/apidump_off.bat ApiDump/
           Copy-Item tools/apidump_run.bat ApiDump/
+          Copy-Item tools/collect_report.bat ApiDump/
+          Copy-Item tools/collect_report.ps1 ApiDump/
           Copy-Item tools/apidump_register.bat ApiDump/
           Copy-Item tools/apidump_unregister.bat ApiDump/
           Copy-Item tools/roblox_vr_flag.bat ApiDump/
