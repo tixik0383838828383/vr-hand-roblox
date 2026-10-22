@@ -21,6 +21,21 @@ jobs:
         shell: bash
         run: git clone --depth 1 --branch "$OPENXR_TAG" https://github.com/KhronosGroup/OpenXR-SDK-Source "$RUNNER_TEMP/openxr"
 
+      - name: Патч api_dump (файл лога по умолчанию)
+        shell: bash
+        run: |
+          f="$RUNNER_TEMP/openxr/src/api_layers/api_dump.cpp"
+          python3 - "$f" <<'PY'
+          import sys
+          p=sys.argv[1]
+          s=open(p,encoding='utf-8').read()
+          marker='        if (!file_name.empty()) {\n            g_record_info.file_name = file_name;'
+          assert marker in s, "marker not found"
+          s=s.replace(marker,'        if (file_name.empty()) { file_name = "C:\\\\VRHandDriver\\\\xr_apidump.txt"; }\n'+marker,1)
+          open(p,'w',encoding='utf-8').write(s)
+          PY
+          grep -n "VRHandDriver" "$f"
+
       - name: CMake configure
         shell: bash
         run: cmake -S "$RUNNER_TEMP/openxr" -B "$RUNNER_TEMP/openxr/build" -A x64 -DBUILD_API_LAYERS=ON -DBUILD_TESTS=ON -DBUILD_CONFORMANCE_TESTS=OFF -DDYNAMIC_LOADER=ON
@@ -59,6 +74,9 @@ jobs:
           Copy-Item tools/apidump_on.bat ApiDump/
           Copy-Item tools/apidump_off.bat ApiDump/
           Copy-Item tools/apidump_run.bat ApiDump/
+          Copy-Item tools/apidump_register.bat ApiDump/
+          Copy-Item tools/apidump_unregister.bat ApiDump/
+          Copy-Item tools/roblox_vr_flag.bat ApiDump/
           Copy-Item tools/apidump_selftest.bat ApiDump/
           Copy-Item HelloXR/hello_xr.exe ApiDump/
           if (Test-Path HelloXR/openxr_loader.dll) { Copy-Item HelloXR/openxr_loader.dll ApiDump/ }
