@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Continue"
+﻿$ErrorActionPreference = "Continue"
 $out = "C:\VRHandDriver\report.txt"
 New-Item -ItemType Directory -Path "C:\VRHandDriver" -Force | Out-Null
 function W($t) { Add-Content -Path $out -Value $t -Encoding UTF8 }
