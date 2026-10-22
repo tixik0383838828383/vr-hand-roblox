@@ -2,8 +2,11 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 if not exist "C:\VRHandDriver" mkdir "C:\VRHandDriver"
+if not exist "C:\VRHandDriver\layer" mkdir "C:\VRHandDriver\layer"
+copy /y "%~dp0XrApiLayer_api_dump.dll" "C:\VRHandDriver\layer\" >nul
+copy /y "%~dp0XrApiLayer_api_dump.json" "C:\VRHandDriver\layer\" >nul
 del "C:\VRHandDriver\xr_apidump_selftest.txt" >nul 2>&1
-set "XR_API_LAYER_PATH=%~dp0"
+set "XR_API_LAYER_PATH=C:\VRHandDriver\layer"
 set "XR_ENABLE_API_LAYERS=XR_APILAYER_LUNARG_api_dump"
 set "XR_API_DUMP_EXPORT_TYPE=text"
 set "XR_API_DUMP_FILE_NAME=C:\VRHandDriver\xr_apidump_selftest.txt"

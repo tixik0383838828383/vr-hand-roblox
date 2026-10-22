@@ -1,8 +1,11 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+if not exist "C:\VRHandDriver\layer" mkdir "C:\VRHandDriver\layer"
+copy /y "%~dp0XrApiLayer_api_dump.dll" "C:\VRHandDriver\layer\" >nul
+copy /y "%~dp0XrApiLayer_api_dump.json" "C:\VRHandDriver\layer\" >nul
 echo Включаю запись вызовов OpenXR (слой api_dump) для всех программ.
-setx XR_API_LAYER_PATH "%~dp0" >nul
+setx XR_API_LAYER_PATH "C:\VRHandDriver\layer" >nul
 setx XR_ENABLE_API_LAYERS "XR_APILAYER_LUNARG_api_dump" >nul
 setx XR_API_DUMP_EXPORT_TYPE "text" >nul
 setx XR_API_DUMP_FILE_NAME "C:\VRHandDriver\xr_apidump.txt" >nul
