@@ -14,6 +14,14 @@ foreach ($k in "HKLM:\SOFTWARE\Khronos\OpenXR\1","HKLM:\SOFTWARE\WOW6432Node\Khr
   try { W ("{0}: {1}" -f $k,(Get-ItemProperty $k -ErrorAction Stop).ActiveRuntime) } catch { W "$k : (нет)" }
 }
 
+W "`n--- Лог слоя от предыдущего запуска (Roblox) ---"
+$prev = "C:\VRHandDriver\xr_apidump.txt"
+if (Test-Path $prev) {
+  Copy-Item $prev "C:\VRHandDriver\xr_apidump_roblox.txt" -Force
+  W ("Файл есть, {0} байт, время {1}; сохранён как xr_apidump_roblox.txt" -f (Get-Item $prev).Length,(Get-Item $prev).LastWriteTime)
+  Select-String -Path $prev -Pattern "applicationName|engineName" | Select-Object -First 10 | ForEach-Object { W ("  " + $_.Line.Trim()) }
+} else { W "Файла нет: после регистрации слоя ни одна OpenXR-программа не писала лог" }
+
 W "`n--- Тест слоя через реестр (hello_xr без переменных окружения) ---"
 Remove-Item "C:\VRHandDriver\xr_apidump.txt" -ErrorAction SilentlyContinue
 $hx = Join-Path $PSScriptRoot "hello_xr.exe"
@@ -41,9 +49,12 @@ Get-Process | Where-Object { $_.ProcessName -like "*Roblox*" } | ForEach-Object 
 
 W "`n--- Последний лог Roblox: строки про VR/XR ---"
 $logDir = Join-Path $rb "logs"
-$log = Get-ChildItem $logDir -Filter "*Player*last.log" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$log = Get-ChildItem $logDir -Filter "*Player_*_last.log" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*CrashHandler*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($log) {
   W "$($log.FullName) $($log.LastWriteTime)"
   Select-String -Path $log.FullName -Pattern "VR|OpenXR|XR " -CaseSensitive:$false | Select-Object -First 80 | ForEach-Object { W ("  " + $_.Line.Substring(0,[Math]::Min(300,$_.Line.Length))) }
 } else { W "  (логов нет в $logDir)" }
+W "`n--- vrserver.txt: упоминания Roblox/OpenXR (последние 40) ---"
+$vs = "${env:ProgramFiles(x86)}\Steam\logs\vrserver.txt"
+if (Test-Path $vs) { Select-String -Path $vs -Pattern "Roblox|OpenXR" | Select-Object -Last 40 | ForEach-Object { W ("  " + $_.Line.Substring(0,[Math]::Min(250,$_.Line.Length))) } } else { W "  (нет $vs)" }
 Write-Host "Готово. Файл: $out"
