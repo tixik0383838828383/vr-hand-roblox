@@ -2,7 +2,7 @@
 # Запускать через roblox_vr.bat. Roblox и Studio при этом должны быть закрыты:
 # при выходе они перезаписывают свои настройки.
 param(
-    [ValidateSet("PlayerOnly", "AllOff", "StudioOn", "Status")]
+    [ValidateSet("PlayerOnly", "AllOff", "StudioOn", "ResetPlayer", "Status")]
     [string]$Action = "Status"
 )
 
@@ -60,9 +60,18 @@ if ($Action -ne "Status") {
 
 switch ($Action) {
     "PlayerOnly" {
+        # В Studio VR выключаем. Для Player файл настроек НЕ создаём (Player включает VR переключателем в игре).
         Set-Flag $studioFile $false $null
-        Set-Flag $playerFile $true $studioFile
-        Write-Host "Готово: VR включён в Roblox Player, в Studio выключен." -ForegroundColor Green
+        Write-Host "Готово: в Studio VR выключен. В Player VR включается переключателем в самой игре." -ForegroundColor Green
+    }
+    "ResetPlayer" {
+        if (Test-Path $playerFile) {
+            $bak = "$playerFile.removed-by-vrhand"
+            Move-Item $playerFile $bak -Force
+            Write-Host "Файл настроек Player убран (сохранён как $(Split-Path $bak -Leaf)). Настройки Player (в т.ч. размер текста) вернутся к обычным." -ForegroundColor Green
+        } else {
+            Write-Host "Файла настроек Player нет — сбрасывать нечего." -ForegroundColor Yellow
+        }
     }
     "AllOff" {
         Set-Flag $studioFile $false $null
