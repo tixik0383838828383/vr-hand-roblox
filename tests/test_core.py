@@ -193,5 +193,39 @@ class CppProtocolTests(unittest.TestCase):
             self.assertEqual([int(x) for x in got["buttons"]], [core.BTN_A | core.BTN_STICK_CLICK, core.BTN_B])
 
 
+class ScrollAndAimTests(unittest.TestCase):
+    def test_wheel_scrolls_right_stick_and_decays(self):
+        sim = Simulator()
+        sim.update(0.01, Inputs(wheel=1))
+        self.assertGreater(sim.stick[RIGHT][1], 0.3)
+        step(sim, Inputs(), seconds=1.0)
+        self.assertAlmostEqual(sim.stick[RIGHT][1], 0.0, places=3)
+
+    def test_wheel_with_shift_moves_hand_not_scroll(self):
+        sim = Simulator()
+        z0 = sim.offset[RIGHT][2]
+        sim.update(0.01, Inputs(keys=frozenset({"shift"}), wheel=2))
+        self.assertLess(sim.offset[RIGHT][2], z0)
+        self.assertEqual(sim.stick[RIGHT][1], 0.0)
+
+    def test_bracket_keys_scroll(self):
+        sim = Simulator()
+        sim.update(0.01, Inputs(keys=frozenset({"rbracket"})))
+        self.assertEqual(sim.stick[RIGHT][1], 1.0)
+        sim.update(0.01, Inputs(keys=frozenset({"lbracket"})))
+        self.assertEqual(sim.stick[RIGHT][1], -1.0)
+
+    def test_hand_rays_converge_to_gaze_centre(self):
+        sim = Simulator()
+        d = sim.cfg.converge_distance
+        for h in (LEFT, RIGHT):
+            pose = sim.hand_pose(h)
+            fx, fy, fz = core.q_rotate(pose[3:], (0, 0, -1))
+            t = d / -fz
+            hit = (pose[0] + fx * t, pose[1] + fy * t)
+            self.assertAlmostEqual(hit[0], 0.0, delta=0.05)
+            self.assertAlmostEqual(hit[1], sim.head_height, delta=0.05)
+
+
 if __name__ == "__main__":
     unittest.main()

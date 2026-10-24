@@ -70,6 +70,9 @@ KEY_AIM_DOWN = "down"
 KEY_ROLL_LEFT = "comma"
 KEY_ROLL_RIGHT = "period"
 
+KEY_SCROLL_UP = "rbracket"    # ] — прокрутка вверх (правый стик вверх)
+KEY_SCROLL_DOWN = "lbracket"  # [ — прокрутка вниз
+
 KEY_RESET = "home"
 KEY_HEIGHT_UP = "pageup"
 KEY_HEIGHT_DOWN = "pagedown"
@@ -85,6 +88,9 @@ class Config:
     aim_speed: float = 1.4             # рад/с, повороты руки стрелками
     finger_speed: float = 9.0          # скорость сгибания пальца (единиц/с)
     trigger_speed: float = 14.0
+    scroll_per_click: float = 0.7      # на сколько колесо отклоняет правый стик (прокрутка меню)
+    scroll_decay: float = 4.0          # как быстро стик возвращается в центр, ед./с
+    converge_distance: float = 2.0     # м: на таком расстоянии лучи рук сходятся в центре взгляда (0 = выкл.)
     hand_follows_gaze_pitch: bool = True  # луч руки следует за наклоном головы
     hand_pitch_offset_deg: float = 0.0    # поправка наклона контроллера
     # Начальные положения рук относительно головы (x вправо, y вверх, z вперёд = минус)
@@ -171,6 +177,14 @@ class Simulator:
         self.pitch = 0.0
         self.offset = {h: list(self.cfg.default_offsets[h]) for h in (LEFT, RIGHT)}
         self.aim = {h: [0.0, 0.0, 0.0] for h in (LEFT, RIGHT)}  # yaw, pitch, roll
+        self.scroll = 0.0
+        d = self.cfg.converge_distance
+        if d > 0:
+            # Лучи рук слегка «косят» к центру взгляда: курсор меню оказывается там, куда смотрит голова.
+            for h in (LEFT, RIGHT):
+                ox, oy, _ = self.offset[h]
+                self.aim[h][0] = math.atan2(ox, d)
+                self.aim[h][1] = math.atan2(-oy, d)
         self.trigger = [0.0, 0.0]
         self.grip = [0.0, 0.0]
         self.fingers = [[0.0] * 5, [0.0] * 5]
@@ -212,10 +226,10 @@ class Simulator:
         else:
             self.yaw -= inp.dx * cfg.mouse_sensitivity
             self.pitch = clamp(self.pitch - dy * cfg.mouse_sensitivity, math.radians(-89), math.radians(89))
-            # Колесо без модификаторов двигает правую руку вперёд/назад
+            # Колесо без модификаторов — прокрутка (правый стик вверх/вниз), как на контроллере
             if inp.wheel:
-                o = self.offset[RIGHT]
-                o[2] = clamp(o[2] - inp.wheel * cfg.wheel_step, -0.9, 0.2)
+                self.scroll = clamp(self.scroll + inp.wheel * cfg.scroll_per_click, -1.0, 1.0)
+        self.scroll = approach(self.scroll, 0.0, cfg.scroll_decay, dt)
         self.yaw = (self.yaw + math.pi) % (2 * math.pi) - math.pi
 
         # Повороты руки стрелками и , .
@@ -240,7 +254,9 @@ class Simulator:
         if length > 1.0:
             lx, ly = lx / length, ly / length
         rx = (KEY_TURN_RIGHT in keys) - (KEY_TURN_LEFT in keys)
-        self.stick = [[float(lx), float(ly)], [float(rx), 0.0]]
+        ry = (KEY_SCROLL_UP in keys) - (KEY_SCROLL_DOWN in keys)
+        ry = clamp(ry + self.scroll, -1.0, 1.0)
+        self.stick = [[float(lx), float(ly)], [float(rx), float(ry)]]
 
         # Кнопки
         buttons = [0, 0]
